@@ -199,6 +199,8 @@ class XGLMAttention(nn.Module):
         dropout: float = 0.0,
         is_decoder: bool = False,
         bias: bool = True,
+        fix_layer: Optional[List[int]] = None,     # 追加
+        fix_head: Optional[List[int]] = None,       # 追加
     ):
         super().__init__()
         self.embed_dim = embed_dim
@@ -218,6 +220,10 @@ class XGLMAttention(nn.Module):
         self.v_proj = nn.Linear(embed_dim, embed_dim, bias=bias)
         self.q_proj = nn.Linear(embed_dim, embed_dim, bias=bias)
         self.out_proj = nn.Linear(embed_dim, embed_dim, bias=bias)
+
+        self.fix_layer = fix_layer                # 追加
+        self.fix_head = fix_head                  # 追加
+        self.layer_idx = None                     # 追加: 現在の層番号。外部から設定してください。
 
     def _shape(self, tensor: torch.Tensor, seq_len: int, bsz: int):
         return tensor.view(bsz, seq_len, self.num_heads, self.head_dim).transpose(1, 2).contiguous()
@@ -311,6 +317,23 @@ class XGLMAttention(nn.Module):
             attn_weights = layer_head_mask.view(1, -1, 1, 1) * attn_weights.view(bsz, self.num_heads, tgt_len, src_len)
             attn_weights = attn_weights.view(bsz * self.num_heads, tgt_len, src_len)
 
+        if (self.fix_layer is not None) and (self.fix_head is not None) and (self.layer_idx is not None):
+            if self.layer_idx in self.fix_layer:
+                # 下三角行列（対角含む）を作成。各行 i で allowed な部分を均一化（各行で allowed 部分は 1/(i+1)）
+                triangular = torch.tril(torch.ones((tgt_len, tgt_len), device=attn_weights.device))
+                denom = triangular.sum(dim=-1, keepdim=True)  # 各行ごとの和（i+1）
+                uniform_distribution = triangular / denom    # shape: [tgt_len, tgt_len]
+                # attn_weights を 4D に reshape して、各ヘッド毎に分離
+                attn_weights = attn_weights.view(bsz, self.num_heads, tgt_len, src_len)
+                # fix_head にあるインデックスのみを一括で置き換える
+                fix_heads = torch.tensor(self.fix_head, dtype=torch.long, device=attn_weights.device)  # 対象のヘッドインデックス
+                # uniform_distribution の shape を [1, 1, tgt_len, src_len] にしてブロードキャストできるようにする
+                uniform_distribution_expanded = uniform_distribution.unsqueeze(0).unsqueeze(0)
+                attn_weights.index_copy_(1, fix_heads, uniform_distribution_expanded.expand(bsz, fix_heads.size(0), tgt_len, src_len))
+                # 再度 3D テンソルに reshape
+                attn_weights = attn_weights.view(bsz * self.num_heads, tgt_len, src_len)
+
+
         if output_attentions:
             # this operation is a bit awkward, but it's required to
             # make sure that attn_weights keeps its gradient.
@@ -353,6 +376,9 @@ class XGLMDecoderLayer(nn.Module):
             num_heads=config.attention_heads,
             dropout=config.attention_dropout,
             is_decoder=True,
+            fix_layer=config.fix_layer,     # 追加
+            fix_head=config.fix_head,       # 追加
+
         )
         self.dropout = config.dropout
         self.activation_fn = ACT2FN[config.activation_function]
@@ -364,6 +390,8 @@ class XGLMDecoderLayer(nn.Module):
                 num_heads=config.attention_heads,
                 dropout=config.attention_dropout,
                 is_decoder=True,
+                fix_layer=config.fix_layer,     # 追加
+                fix_head=config.fix_head,       # 追加
             )
             self.encoder_attn_layer_norm = nn.LayerNorm(self.embed_dim)
 
@@ -515,6 +543,12 @@ class XGLMModel(XGLMPreTrainedModel):
             config.pad_token_id,
         )
         self.layers = nn.ModuleList([XGLMDecoderLayer(config) for _ in range(config.num_layers)])
+        for idx, layer in enumerate(self.layers):
+            # 各レイヤーの self_attn に層番号をセット
+            layer.self_attn.layer_idx = idx
+            # もし encoder_attn が存在する場合は、同様にセット
+            if hasattr(layer, "encoder_attn"):
+                layer.encoder_attn.layer_idx = idx
         self.layer_norm = nn.LayerNorm(config.d_model)
 
         self.gradient_checkpointing = False
