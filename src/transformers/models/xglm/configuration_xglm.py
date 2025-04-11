@@ -92,6 +92,8 @@ class XGLMConfig(PretrainedConfig):
 
     def __init__(
         self,
+        # fix_layer,
+        # fix_head,
         vocab_size=256008,
         max_position_embeddings=2048,
         d_model=1024,
@@ -110,8 +112,6 @@ class XGLMConfig(PretrainedConfig):
         pad_token_id=1,
         bos_token_id=0,
         eos_token_id=2,
-        fix_layer=None,
-        fix_head=None,
         **kwargs,
     ):
         self.vocab_size = vocab_size
@@ -128,8 +128,8 @@ class XGLMConfig(PretrainedConfig):
         self.init_std = init_std
         self.scale_embedding = scale_embedding  # scale factor will be sqrt(d_model) if True
         self.use_cache = use_cache
-        self.fix_layer = fix_layer
-        self.fix_head = fix_head
+        # self.fix_layer = fix_layer
+        # self.fix_head = fix_head
         
         super().__init__(
             pad_token_id=pad_token_id,
@@ -139,5 +139,6 @@ class XGLMConfig(PretrainedConfig):
             **kwargs,
         )
 
+        print(f"{__file__}, {self.__class__.__name__}.__init__() function, fix_layer: {self.fix_layer}, fix_head: {self.fix_head}")
 
 __all__ = ["XGLMConfig"]

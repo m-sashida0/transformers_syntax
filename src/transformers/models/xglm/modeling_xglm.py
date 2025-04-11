@@ -194,13 +194,15 @@ class XGLMAttention(nn.Module):
 
     def __init__(
         self,
+        fix_layer,
+        fix_head,
         embed_dim: int,
         num_heads: int,
         dropout: float = 0.0,
         is_decoder: bool = False,
         bias: bool = True,
-        fix_layer: Optional[List[int]] = None,     # 追加
-        fix_head: Optional[List[int]] = None,       # 追加
+        # fix_layer: Optional[List[int]] = None,     # 追加
+        # fix_head: Optional[List[int]] = None,       # 追加
     ):
         super().__init__()
         self.embed_dim = embed_dim
@@ -224,6 +226,7 @@ class XGLMAttention(nn.Module):
         self.fix_layer = fix_layer                # 追加
         self.fix_head = fix_head                  # 追加
         self.layer_idx = None                     # 追加: 現在の層番号。外部から設定してください。
+        print(f"{__file__}, {self.__class__.__name__}.__init__() function, fix_layer: {self.fix_layer}, fix_head: {self.fix_head}")
 
     def _shape(self, tensor: torch.Tensor, seq_len: int, bsz: int):
         return tensor.view(bsz, seq_len, self.num_heads, self.head_dim).transpose(1, 2).contiguous()

@@ -322,6 +322,9 @@ class PretrainedConfig(PushToHubMixin):
                 logger.error(f"Can't set {key} with value {value} for {self}")
                 raise err
 
+        self.fix_layer = kwargs.pop("fix_layer", None)
+        self.fix_head = kwargs.pop("fix_head", None)
+        print(f"{__file__}, {self.__class__.__name__}.__init__() 327XXfunction, model_args: {kwargs}, fix_layer: {self.fix_layer}, fix_head: {self.fix_head}")
     @property
     def name_or_path(self) -> str:
         return getattr(self, "_name_or_path", None)
@@ -733,6 +736,10 @@ class PretrainedConfig(PushToHubMixin):
 
         # We remove it from kwargs so that it does not appear in `return_unused_kwargs`.
         config_dict["attn_implementation"] = kwargs.pop("attn_implementation", None)
+        print(f"{__file__}, {cls.__name__}.__init__() function, model_args: {kwargs}")
+        config_dict["fix_layer"] = kwargs.pop("fix_layer")
+        config_dict["fix_head"] = kwargs.pop("fix_head")
+        print(f"{__file__}, {cls.__name__}.__init__() function, model_args: {kwargs}, fix_layer: {config_dict['fix_layer']}, fix_head: {config_dict['fix_head']}")
 
         config = cls(**config_dict)
 

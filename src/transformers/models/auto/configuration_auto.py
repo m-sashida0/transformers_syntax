@@ -1011,6 +1011,7 @@ class AutoConfig:
     @classmethod
     @replace_list_option_in_docstrings()
     def from_pretrained(cls, pretrained_model_name_or_path, **kwargs):
+        print(f"this file is configauto{kwargs}")
         r"""
         Instantiate one of the configuration classes of the library from a pretrained model configuration.
 
@@ -1138,6 +1139,7 @@ class AutoConfig:
                     "Transformers from source with the command "
                     "`pip install git+https://github.com/huggingface/transformers.git`"
                 )
+            print(f"this file is configaut config_dict{config_dict}, unused_kwargs{unused_kwargs}")
             return config_class.from_dict(config_dict, **unused_kwargs)
         else:
             # Fallback: use pattern matching on the string.
